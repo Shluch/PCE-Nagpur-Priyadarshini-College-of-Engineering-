@@ -1,0 +1,1 @@
+mongodb+srv://adityaalat007:1234567890@cluster0.cuaeo.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
