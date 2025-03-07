@@ -1,1 +1,170 @@
-mongodb+srv://adityaalat007:1234567890@cluster0.cuaeo.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import './LearningMaterial.css';
+import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+
+function LearningMaterial() {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [category, setCategory] = useState('assignments');
+  const [year, setYear] = useState('firstYear');
+  const [uploadMessage, setUploadMessage] = useState('');
+  const [materials, setMaterials] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const navigate = useNavigate();
+
+  // Dropdown options for year selection
+  const yearOptions = [
+    { key: 'firstYear', label: '1st Year' },
+    { key: 'secondYear', label: '2nd Year' },
+    { key: 'thirdYear', label: '3rd Year' },
+    { key: 'fourthYear', label: '4th Year' }
+  ];
+
+  useEffect(() => {
+    // Fetch list of learning materials
+    axios.get('http://localhost:5000/api/learning-materials')
+      .then(response => {
+        setMaterials(response.data);
+      })
+      .catch(err => console.error(err));
+
+    // Check for admin token
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        if (decoded.role === 'admin') {
+          setIsAdmin(true);
+        }
+      } catch (err) {
+        console.error('Error decoding token:', err);
+      }
+    }
+  }, []);
+
+  const handleFileChange = (e) => {
+    setSelectedFile(e.target.files[0]);
+  };
+
+  const handleCategoryChange = (e) => {
+    setCategory(e.target.value);
+  };
+
+  const handleYearChange = (e) => {
+    setYear(e.target.value);
+  };
+
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) {
+      setUploadMessage("Please select a file to upload.");
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('category', category);
+    formData.append('year', year);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post('http://localhost:5000/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: token,
+        },
+      });
+      setUploadMessage(response.data.message);
+      // Refresh materials list after successful upload
+      const res = await axios.get('http://localhost:5000/api/learning-materials');
+      setMaterials(res.data);
+    } catch (error) {
+      console.error(error);
+      setUploadMessage("Error uploading file.");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsAdmin(false);
+    alert('You have been logged out.');
+    navigate('/login');
+  };
+
+  return (
+    <div className="learning-material-page container py-5">
+      <h1 className="text-center mb-4">Learning Material</h1>
+
+      {isAdmin && (
+        <>
+          <div className="text-end mb-3">
+            <button onClick={handleLogout} className="btn btn-danger">Admin Logout</button>
+          </div>
+          <form onSubmit={handleUpload} className="learning-material-form mb-4">
+            <div className="mb-3">
+              <label htmlFor="categorySelect" className="form-label">Select Category:</label>
+              <select id="categorySelect" className="form-select" value={category} onChange={handleCategoryChange}>
+                <option value="assignments">Assignments</option>
+                <option value="questionBank">Question Bank</option>
+                <option value="previousPapers">Previous Papers</option>
+                <option value="syllabus">Syllabus</option>
+              </select>
+            </div>
+            <div className="mb-3">
+              <label htmlFor="yearSelect" className="form-label">Select Year:</label>
+              <select id="yearSelect" className="form-select" value={year} onChange={handleYearChange}>
+                {yearOptions.map(opt => (
+                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mb-3">
+              <label htmlFor="fileInput" className="form-label">Select File:</label>
+              <input id="fileInput" type="file" className="form-control" onChange={handleFileChange} />
+            </div>
+            <div className="text-center">
+              <button type="submit" className="btn btn-success">Upload File</button>
+            </div>
+            {uploadMessage && <p className="upload-message text-center mt-3">{uploadMessage}</p>}
+          </form>
+        </>
+      )}
+
+      <div className="materials-list">
+        <h2 className="mb-3 text-center">Available Learning Materials</h2>
+        {materials.length > 0 ? (
+          // Display materials grouped by year. For simplicity, here we show all.
+          materials.map((doc) => (
+            <div key={doc._id}>
+              {yearOptions.map(opt => (
+                <div key={opt.key}>
+                  <h3>{opt.label}</h3>
+                  {doc[opt.key] && doc[opt.key].length > 0 ? (
+                    doc[opt.key].map((material) => (
+                      <div key={material._id} className="card p-3 mb-2">
+                        <p><strong>Category:</strong> {material.category}</p>
+                        <p>
+                          <strong>File:</strong>{' '}
+                          <a href={`http://localhost:5000/${material.filePath}`} target="_blank" rel="noopener noreferrer">
+                            {material.originalName}
+                          </a>
+                        </p>
+                        <p><strong>Uploaded At:</strong> {new Date(material.uploadedAt).toLocaleString()}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p>No materials available for {opt.label}.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))
+        ) : (
+          <p className="text-center">No learning materials available.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default LearningMaterial;

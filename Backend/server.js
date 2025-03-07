@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const cors = require('cors');
-// const Students = require('./models/Students'); // Updated to match your file
+const path = require('path'); // Added to work with static files
 const Students = require('./models/Students');
 
 const app = express();
@@ -13,6 +13,9 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+
+// Serve static files from the uploads folder
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Connect to MongoDB
 mongoose
@@ -111,7 +114,6 @@ app.get('/api/students', async (req, res) => {
 });
 
 // PUT update students document (admin only)
-// PUT update entire student list (admin only)
 app.put('/api/students', verifyToken, isAdmin, async (req, res) => {
   try {
     const updatedData = req.body;
@@ -131,16 +133,14 @@ app.put('/api/students', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ... [previous requires and middleware]
-
+// Multer configuration for Learning Material uploads
 const multer = require('multer');
-const path = require('path');
 const LearningMaterial = require('./models/LearningMaterial');
 
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // Make sure the uploads folder exists
+    cb(null, 'uploads/'); // Ensure the uploads folder exists
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + '-' + file.originalname);
@@ -204,7 +204,6 @@ app.get('/api/learning-materials', async (req, res) => {
   }
 });
 
-// ... [other routes and app.listen]
 const Achievements = require('./models/Achievements');
 
 // GET achievements document (single document grouping data by year)
@@ -238,8 +237,6 @@ app.put('/api/achievements', verifyToken, isAdmin, async (req, res) => {
     res.status(500).json({ message: 'Error updating achievements' });
   }
 });
-
-
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
